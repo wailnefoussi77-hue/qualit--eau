@@ -7,6 +7,58 @@ st.set_page_config(page_title="Contrôle qualité de l'eau", layout="wide")
 # ---------- Styling ----------
 st.markdown(
     """
+    /* --- DARK FIX: tableaux lisibles --- */
+div[data-testid="stDataFrame"] * {
+  color: #ffffff !important;
+}
+
+div[data-testid="stDataFrame"] {
+  background: #0e1117 !important;
+  border-radius: 12px;
+  padding: 6px;
+}
+
+div[data-testid="stDataEditor"] * {
+  color: #ffffff !important;
+}
+
+div[data-testid="stDataEditor"] {
+  background: #0e1117 !important;
+  border-radius: 12px;
+  padding: 6px;
+}
+
+/* entêtes colonnes */
+div[data-testid="stDataFrame"] thead tr th,
+div[data-testid="stDataEditor"] thead tr th{
+  background: #111827 !important;
+  color: #ffffff !important;
+}
+
+/* cellules */
+div[data-testid="stDataFrame"] tbody tr td,
+div[data-testid="stDataEditor"] tbody tr td{
+  background: #1f2937 !important;
+  color: #ffffff !important;
+}
+
+/* alternance lignes */
+div[data-testid="stDataFrame"] tbody tr:nth-child(even) td,
+div[data-testid="stDataEditor"] tbody tr:nth-child(even) td{
+  background: #111827 !important;
+}
+
+/* On passe tes cards en dark (sinon elles restent blanches) */
+.card {
+  background: #0b1220 !important;
+  border: 1px solid #1f2937 !important;
+  color: #ffffff !important;
+}
+
+/* Texte général */
+h1,h2,h3,h4,p,li,span,label {
+  color: #ffffff !important;
+}
     <style>
       .block-container {padding-top: 1.6rem; padding-bottom: 2rem;}
       h1 {letter-spacing: -0.5px;}
@@ -80,7 +132,7 @@ def row_class(status: str):
 
 # ---------- Header ----------
 st.title("💧 Contrôle qualité de l'eau")
-st.markdown('<div class="small">Appli web Streamlit (version “site internet” avec couleurs).</div>', unsafe_allow_html=True)
+st.markdown('<div class="small">Site crée par Wail, Marlon et Killian.</div>', unsafe_allow_html=True)
 
 top_left, top_right = st.columns([2, 1], vertical_alignment="top")
 with top_left:
@@ -182,26 +234,7 @@ styled = show_df.style.apply(lambda r: [row_class(r["Statut"])]*len(r), axis=1)
 
 st.dataframe(styled, use_container_width=True, hide_index=True)
 
-# ---------- Text summary ----------
-st.subheader("3) Résumé (comme ta zone texte MATLAB)")
-lines = []
-for _, row in df.iterrows():
-    test = row["Test"]
-    statut = row["Statut"]
-    if statut == "—":
-        lines.append(f"- {test} : valeur manquante")
-    elif statut == "Valeur invalide":
-        lines.append(f"- {test} : valeur invalide")
-    elif statut.startswith("🟢"):
-        lines.append(f"- {test} : respecte la norme")
-    elif statut.startswith("🟠"):
-        lines.append(f"- {test} : limite proche")
-    else:
-        lines.append(f"- {test} : ne respecte pas la norme")
 
-st.markdown('<div class="card">', unsafe_allow_html=True)
-st.write("\n".join(lines))
-st.markdown("</div>", unsafe_allow_html=True)
 
 # ---------- Export ----------
 st.subheader("4) Export")
