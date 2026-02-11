@@ -1,172 +1,157 @@
 import time
 import streamlit as st
 import pandas as pd
-import numpy as np
 
-st.set_page_config(page_title="Contrôle qualité de l'eau", layout="wide")
+st.set_page_config(page_title="Analyse qualité de l'eau", layout="wide")
 
-# -------------------- STYLE (lisible en dark) --------------------
-st.markdown(
-    """
-    <style>
-      .block-container {padding-top: 1.6rem; padding-bottom: 2rem;}
-      .card {background:#0b1220; border:1px solid #1f2937; border-radius:16px; padding:16px;}
-      .big {font-size:1.2rem; font-weight:700;}
-      .muted {opacity:0.85;}
-      .okBox {background:#0f2a1a; border:1px solid #1f8b4c; padding:14px; border-radius:14px;}
-      .warnBox {background:#2a210f; border:1px solid #f2b01e; padding:14px; border-radius:14px;}
-      .badBox {background:#2a0f12; border:1px solid #ff5a5f; padding:14px; border-radius:14px;}
-      div[data-testid="stDataFrame"] * { color:#ffffff !important; }
-      div[data-testid="stDataFrame"] { background:#0e1117 !important; border-radius:12px; padding:6px; }
-      div[data-testid="stDataFrame"] thead tr th { background:#111827 !important; color:#ffffff !important; }
-      div[data-testid="stDataFrame"] tbody tr td { background:#1f2937 !important; color:#ffffff !important; }
-      div[data-testid="stDataFrame"] tbody tr:nth-child(even) td { background:#111827 !important; }
-    </style>
-    """,
-    unsafe_allow_html=True
-)
+# ---------------- STYLE ----------------
+st.markdown("""
+<style>
+.block-container {padding-top: 1.5rem; padding-bottom: 2rem;}
+.card {background:#0f172a; border:1px solid #1e293b; border-radius:16px; padding:20px;}
+.okBox {background:#052e16; border:1px solid #16a34a; padding:16px; border-radius:14px;}
+.warnBox {background:#3f2d06; border:1px solid #facc15; padding:16px; border-radius:14px;}
+.badBox {background:#3f0d0d; border:1px solid #ef4444; padding:16px; border-radius:14px;}
+.infoBox {background:#0c2e4e; border:1px solid #3b82f6; padding:16px; border-radius:14px;}
+.big {font-size:1.3rem; font-weight:700;}
+div[data-testid="stDataFrame"] * { color:white !important; }
+div[data-testid="stDataFrame"] { background:#0e1117 !important; border-radius:12px; }
+</style>
+""", unsafe_allow_html=True)
 
-# -------------------- NORMES (à ajuster si besoin) --------------------
+# ---------------- PARAMÈTRES ----------------
+TESTS = [
+    "pH",
+    "fer (mg/L)",
+    "nitrates (mg/L)",
+    "potassium (mg/L)",
+    "calcium (mg/L)",
+    "durete totale (°f)",
+    "chlore (mg/L)",
+]
+
+# Normes officielles / reconnues
 NORMES = {
     "OMS": {
-        "Eau du robinet": {"nitrates (mg/L)": 50, "plomb (µg/L)": 10, "pH": 8.5, "turbidite (NTU)": 1, "fer (mg/L)": 0.3, "magnesium (mg/L)": 50, "chlore (mg/L)": 0.5},
-        "Eau minérale":   {"nitrates (mg/L)": 75, "plomb (µg/L)": 15, "pH": 8.5, "turbidite (NTU)": 5, "fer (mg/L)": 1.0, "magnesium (mg/L)": 125, "chlore (mg/L)": 1.0},
+        "pH": (6.5, 8.5),
+        "fer (mg/L)": 0.3,
+        "nitrates (mg/L)": 50,
+        "potassium (mg/L)": None,
+        "calcium (mg/L)": None,
+        "durete totale (°f)": None,
+        "chlore (mg/L)": 0.5
     },
-    "Normes françaises": {
-        "Eau du robinet": {"nitrates (mg/L)": 50, "plomb (µg/L)": 10, "pH": 8.5, "turbidite (NTU)": 1, "fer (mg/L)": 0.2, "magnesium (mg/L)": 60, "chlore (mg/L)": 0.4},
-        "Eau minérale":   {"nitrates (mg/L)": 40, "plomb (µg/L)": 5,  "pH": 7.5, "turbidite (NTU)": 3, "fer (mg/L)": 0.3, "magnesium (mg/L)": 100, "chlore (mg/L)": 0.6},
+
+    "Normes françaises / UE": {
+        "pH": (6.5, 9.0),
+        "fer (mg/L)": 0.2,
+        "nitrates (mg/L)": 50,
+        "potassium (mg/L)": None,
+        "calcium (mg/L)": None,
+        "durete totale (°f)": None,
+        "chlore (mg/L)": 0.2
     }
 }
 
-TESTS = ["nitrates (mg/L)", "plomb (µg/L)", "pH", "turbidite (NTU)", "fer (mg/L)", "magnesium (mg/L)", "chlore (mg/L)"]
+# ---------------- FONCTION STATUT ----------------
+def compute_status(test, value, norme):
 
-# Nom “humain” pour le message
-NOMS_HUMAINS = {
-    "nitrates (mg/L)": "nitrates",
-    "plomb (µg/L)": "plomb",
-    "pH": "pH",
-    "turbidite (NTU)": "turbidité",
-    "fer (mg/L)": "fer",
-    "magnesium (mg/L)": "magnésium",
-    "chlore (mg/L)": "chlore",
-}
+    if norme is None:
+        return "🔵 Indicatif"
 
-def compute_status(value, seuil):
-    # 🟢 si <= 0.9*seuil, 🟠 si <= seuil, 🔴 sinon
-    if value is None or (isinstance(value, float) and np.isnan(value)):
-        return "—"
-    v = float(value)
-    if v <= 0.9 * float(seuil):
-        return "🟢 Conforme"
-    elif v <= float(seuil):
-        return "🟠 Limite proche"
-    else:
+    if isinstance(norme, tuple):  # Cas pH
+        if norme[0] <= value <= norme[1]:
+            return "🟢 Conforme"
         return "🔴 Non conforme"
 
-def build_verdict(df):
-    ok = int(df["Statut"].str.startswith("🟢").sum())
-    warn = int(df["Statut"].str.startswith("🟠").sum())
-    bad = int(df["Statut"].str.startswith("🔴").sum())
+    if value <= 0.9 * norme:
+        return "🟢 Conforme"
+    elif value <= norme:
+        return "🟠 Limite proche"
+    return "🔴 Non conforme"
 
-    # Paramètre “le plus problématique” (priorité : 🔴 puis 🟠)
-    pb = df[df["Statut"].str.startswith("🔴")]
-    if pb.empty:
-        pb = df[df["Statut"].str.startswith("🟠")]
+# ---------------- VERDICT GLOBAL ----------------
+def verdict_global(df):
+    sanitaires = df[df["Statut"].isin(["🔴 Non conforme", "🟠 Limite proche"])]
 
-    if bad == 0 and warn == 0:
-        return "ok", f"✅ {ok} conformes ! Vous pouvez boire 😀", None
+    if sanitaires.empty:
+        return "ok", f"✅ Tous les paramètres réglementés sont conformes. Eau potable 😀"
 
-    if not pb.empty:
-        # on prend celui qui dépasse le plus en % du seuil
-        pb = pb.copy()
-        pb["ratio"] = pb["Valeur mesurée"] / pb["Seuil (max)"]
-        worst = pb.sort_values("ratio", ascending=False).iloc[0]
-        nom = NOMS_HUMAINS.get(worst["Test"], worst["Test"])
-        valeur = worst["Valeur mesurée"]
-        seuil = worst["Seuil (max)"]
+    rouges = df[df["Statut"] == "🔴 Non conforme"]
+    if not rouges.empty:
+        probleme = rouges.iloc[0]["Test"]
+        return "bad", f"❌ Non conformité détectée sur {probleme}. Eau déconseillée."
 
-        if str(worst["Statut"]).startswith("🔴"):
-            return "bad", f"❌ Attention : votre eau est trop riche en {nom}. C’est potentiellement dangereux !", f"{nom} = {valeur} (seuil {seuil})"
-        else:
-            return "warn", f"⚠️ Faites attention : votre eau est proche de la limite en {nom}.", f"{nom} = {valeur} (seuil {seuil})"
+    return "warn", "⚠️ Eau globalement conforme mais proche d'une limite réglementaire."
 
-    return "warn", "⚠️ Résultat à vérifier.", None
+# ---------------- INTERFACE ----------------
+st.title("💧 Analyse officielle de la qualité de l’eau")
+st.caption("Seuils basés sur recommandations OMS et Directive européenne 2020/2184.")
 
-# -------------------- UI --------------------
-st.title("💧 Contrôle qualité de l’eau")
-st.caption("Réalisé par Wail Nefoussi, Marlon Drif et Killian Vienne")
+norme_type = st.selectbox("Choisissez le type de normes", list(NORMES.keys()))
+normes_selectionnees = NORMES[norme_type]
 
-colA, colB, colC = st.columns([1.2, 1.2, 1.6], vertical_alignment="top")
-with colA:
-    norme_type = st.selectbox("Type de normes", list(NORMES.keys()))
-with colB:
-    eau_type = st.selectbox("Type d’eau", list(NORMES[norme_type].keys()))
-with colC:
-    st.markdown('<div class="card"><div class="big">Infos</div><div class="muted">Clique “Analyser l’eau” pour lancer le contrôle avec animation.</div></div>', unsafe_allow_html=True)
+st.subheader("Saisissez les mesures")
 
-normes = NORMES[norme_type][eau_type]
+with st.form("form"):
+    col1, col2, col3, col4 = st.columns(4)
 
-# -------------------- FORMULAIRE DE SAISIE --------------------
-st.subheader("1) Saisis les mesures")
+    ph = col1.number_input("pH", value=7.0)
+    fer = col2.number_input("Fer (mg/L)", value=0.0)
+    nitrates = col3.number_input("Nitrates (mg/L)", value=0.0)
+    chlore = col4.number_input("Chlore (mg/L)", value=0.0)
 
-with st.form("form_mesures"):
-    c1, c2, c3, c4 = st.columns(4)
-
-    # Champs (tu peux réorganiser)
-    nitrates = c1.number_input("Nitrates (mg/L)", min_value=0.0, value=0.0, step=0.1)
-    plomb    = c2.number_input("Plomb (µg/L)", min_value=0.0, value=0.0, step=0.1)
-    ph       = c3.number_input("pH", min_value=0.0, value=7.0, step=0.1)
-    turbi    = c4.number_input("Turbidité (NTU)", min_value=0.0, value=0.0, step=0.1)
-
-    c5, c6, c7 = st.columns(3)
-    fer      = c5.number_input("Fer (mg/L)", min_value=0.0, value=0.0, step=0.01)
-    mag      = c6.number_input("Magnésium (mg/L)", min_value=0.0, value=0.0, step=0.1)
-    chlore   = c7.number_input("Chlore (mg/L)", min_value=0.0, value=0.0, step=0.01)
+    col5, col6, col7 = st.columns(3)
+    potassium = col5.number_input("Potassium (mg/L)", value=0.0)
+    calcium = col6.number_input("Calcium (mg/L)", value=0.0)
+    durete = col7.number_input("Dureté totale (°f)", value=0.0)
 
     submitted = st.form_submit_button("🔍 Analyser l’eau")
 
-# -------------------- ANALYSE + ANIMATION --------------------
+# ---------------- ANALYSE ----------------
 if submitted:
-    # Animation "Veuillez patienter"
-    with st.spinner("Veuillez patienter… analyse en cours 🧪"):
+
+    with st.spinner("Analyse en cours… veuillez patienter 🧪"):
         prog = st.progress(0)
         for i in range(101):
-            time.sleep(0.02)   # vitesse de l’animation
+            time.sleep(0.015)
             prog.progress(i)
-        time.sleep(0.15)
+        prog.empty()
 
-    # Construire le tableau
     values = {
-        "nitrates (mg/L)": nitrates,
-        "plomb (µg/L)": plomb,
         "pH": ph,
-        "turbidite (NTU)": turbi,
         "fer (mg/L)": fer,
-        "magnesium (mg/L)": mag,
+        "nitrates (mg/L)": nitrates,
+        "potassium (mg/L)": potassium,
+        "calcium (mg/L)": calcium,
+        "durete totale (°f)": durete,
         "chlore (mg/L)": chlore,
     }
 
     df = pd.DataFrame({
         "Test": TESTS,
         "Valeur mesurée": [values[t] for t in TESTS],
-        "Seuil (max)": [normes[t] for t in TESTS],
+        "Norme": [normes_selectionnees[t] for t in TESTS],
     })
-    df["Statut"] = [compute_status(v, s) for v, s in zip(df["Valeur mesurée"], df["Seuil (max)"])]
 
-    # Verdict
-    kind, message, detail = build_verdict(df)
+    df["Statut"] = [
+        compute_status(t, values[t], normes_selectionnees[t])
+        for t in TESTS
+    ]
 
-    st.subheader("2) Verdict")
+    kind, message = verdict_global(df)
+
+    st.subheader("Verdict")
+
     if kind == "ok":
         st.markdown(f'<div class="okBox"><div class="big">{message}</div></div>', unsafe_allow_html=True)
     elif kind == "warn":
-        st.markdown(f'<div class="warnBox"><div class="big">{message}</div><div class="muted">{detail or ""}</div></div>', unsafe_allow_html=True)
+        st.markdown(f'<div class="warnBox"><div class="big">{message}</div></div>', unsafe_allow_html=True)
     else:
-        st.markdown(f'<div class="badBox"><div class="big">{message}</div><div class="muted">{detail or ""}</div></div>', unsafe_allow_html=True)
+        st.markdown(f'<div class="badBox"><div class="big">{message}</div></div>', unsafe_allow_html=True)
 
-    st.subheader("3) Détails (tableau)")
+    st.subheader("Détails techniques")
     st.dataframe(df, use_container_width=True, hide_index=True)
 
-    st.subheader("4) Export")
     csv = df.to_csv(index=False).encode("utf-8")
-    st.download_button("⬇️ Télécharger les résultats (CSV)", csv, file_name="qualite_eau_resultats.csv", mime="text/csv")
+    st.download_button("⬇️ Télécharger le rapport (CSV)", csv, "rapport_qualite_eau.csv")
