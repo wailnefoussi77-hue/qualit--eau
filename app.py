@@ -94,7 +94,7 @@ def build_verdict(df):
 
 # -------------------- UI --------------------
 st.title("💧 Contrôle qualité de l’eau")
-st.caption("Rentre les valeurs → on analyse → verdict + tableau détaillé.")
+st.caption("Réalisé par Wail Nefoussi, Marlon Drif et Killian Vienne")
 
 colA, colB, colC = st.columns([1.2, 1.2, 1.6], vertical_alignment="top")
 with colA:
