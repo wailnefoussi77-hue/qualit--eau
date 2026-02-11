@@ -130,8 +130,8 @@ if submitted:
     # Animation "Veuillez patienter"
     with st.spinner("Veuillez patienter… analyse en cours 🧪"):
         prog = st.progress(0)
-        for i in range(1, 101, 10):
-            time.sleep(0.06)   # vitesse de l’animation
+        for i in range(101):
+            time.sleep(0.02)   # vitesse de l’animation
             prog.progress(i)
         time.sleep(0.15)
 
