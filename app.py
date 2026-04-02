@@ -27,7 +27,7 @@ TESTS = [
     "potassium (mg/L)",
     "calcium (mg/L)",
     "durete totale (°f)",
-    "chlore (mg/L)",
+    "chlorure (mg/L)",
 ]
 
 # Normes officielles / reconnues
