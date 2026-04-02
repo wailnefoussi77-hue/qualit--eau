@@ -8,14 +8,10 @@ st.set_page_config(page_title="Analyse qualité de l'eau", layout="wide")
 st.markdown("""
 <style>
 .block-container {padding-top: 1.5rem; padding-bottom: 2rem;}
-.card {background:#0f172a; border:1px solid #1e293b; border-radius:16px; padding:20px;}
 .okBox {background:#052e16; border:1px solid #16a34a; padding:16px; border-radius:14px;}
 .warnBox {background:#3f2d06; border:1px solid #facc15; padding:16px; border-radius:14px;}
 .badBox {background:#3f0d0d; border:1px solid #ef4444; padding:16px; border-radius:14px;}
-.infoBox {background:#0c2e4e; border:1px solid #3b82f6; padding:16px; border-radius:14px;}
 .big {font-size:1.3rem; font-weight:700;}
-div[data-testid="stDataFrame"] * { color:white !important; }
-div[data-testid="stDataFrame"] { background:#0e1117 !important; border-radius:12px; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -58,19 +54,20 @@ NORMES = {
 
 # ---------------- FONCTION STATUT ----------------
 def compute_status(test, value, norme):
-
 if norme is None:
 return "🔵 Indicatif"
 
-if isinstance(norme, tuple): # Cas plage (pH, chlore)
+if isinstance(norme, tuple):
 if norme[0] <= value <= norme[1]:
 return "🟢 Conforme"
+else:
 return "🔴 Non conforme"
 
 if value <= 0.9 * norme:
 return "🟢 Conforme"
 elif value <= norme:
 return "🟠 Limite proche"
+else:
 return "🔴 Non conforme"
 
 # ---------------- VERDICT GLOBAL ----------------
@@ -81,23 +78,22 @@ sanitaires = df[
 ]
 
 if sanitaires.empty:
-return "ok", "✅ Tous les paramètres sanitaires sont conformes. Eau potable 😀"
+return "ok", "✅ Eau potable : tous les paramètres sanitaires sont conformes"
 
 rouges = sanitaires[sanitaires["Statut"] == "🔴 Non conforme"]
 if not rouges.empty:
 probleme = rouges.iloc[0]["Test"]
-return "bad", f"❌ Non conformité détectée sur {probleme}. Eau déconseillée."
+return "bad", f"❌ Eau déconseillée : problème sur {probleme}"
 
-return "warn", "⚠️ Eau conforme mais proche d'une limite sanitaire."
+return "warn", "⚠️ Eau conforme mais proche d'une limite sanitaire"
 
 # ---------------- INTERFACE ----------------
-st.title("💧 Analyse officielle de la qualité de l’eau")
-st.caption("Basé sur OMS + Directive européenne 2020/2184")
+st.title("💧 Analyse qualité de l’eau")
 
-norme_type = st.selectbox("Choisissez le type de normes", list(NORMES.keys()))
+norme_type = st.selectbox("Normes utilisées", list(NORMES.keys()))
 normes_selectionnees = NORMES[norme_type]
 
-st.subheader("Saisissez les mesures")
+st.subheader("Entrer les mesures")
 
 with st.form("form"):
 col1, col2, col3, col4 = st.columns(4)
@@ -108,21 +104,21 @@ nitrates = col3.number_input("Nitrates (mg/L)", value=0.0)
 chlore = col4.number_input("Chlore (mg/L)", value=0.2)
 
 col5, col6, col7, col8 = st.columns(4)
+
 potassium = col5.number_input("Potassium (mg/L)", value=0.0)
 calcium = col6.number_input("Calcium (mg/L)", value=0.0)
-durete = col7.number_input("Dureté totale (°f)", value=0.0)
+durete = col7.number_input("Dureté (°f)", value=0.0)
 chlorures = col8.number_input("Chlorures (mg/L)", value=0.0)
 
-submitted = st.form_submit_button("🔍 Analyser l’eau")
+submitted = st.form_submit_button("Analyser")
 
 # ---------------- ANALYSE ----------------
 if submitted:
-
-with st.spinner("Analyse en cours… 🧪"):
+with st.spinner("Analyse..."):
 prog = st.progress(0)
-for i in range(101):
+for i in range(100):
 time.sleep(0.01)
-prog.progress(i)
+prog.progress(i + 1)
 prog.empty()
 
 values = {
@@ -138,7 +134,7 @@ values = {
 
 df = pd.DataFrame({
 "Test": TESTS,
-"Valeur mesurée": [values[t] for t in TESTS],
+"Valeur": [values[t] for t in TESTS],
 "Norme": [normes_selectionnees[t] for t in TESTS],
 })
 
@@ -149,17 +145,17 @@ for t in TESTS
 
 kind, message = verdict_global(df)
 
-st.subheader("Verdict")
+st.subheader("Résultat")
 
 if kind == "ok":
-st.markdown(f'<div class="okBox"><div class="big">{message}</div></div>', unsafe_allow_html=True)
+st.markdown(f'<div class="okBox big">{message}</div>', unsafe_allow_html=True)
 elif kind == "warn":
-st.markdown(f'<div class="warnBox"><div class="big">{message}</div></div>', unsafe_allow_html=True)
+st.markdown(f'<div class="warnBox big">{message}</div>', unsafe_allow_html=True)
 else:
-st.markdown(f'<div class="badBox"><div class="big">{message}</div></div>', unsafe_allow_html=True)
+st.markdown(f'<div class="badBox big">{message}</div>', unsafe_allow_html=True)
 
-st.subheader("Détails techniques")
-st.dataframe(df, use_container_width=True, hide_index=True)
+st.subheader("Détails")
+st.dataframe(df, use_container_width=True)
 
 csv = df.to_csv(index=False).encode("utf-8")
-st.download_button("⬇️ Télécharger le rapport", csv, "rapport_eau.csv")
+st.download_button("Télécharger CSV", csv, "analyse_eau.csv")
