@@ -50,7 +50,6 @@ NORMES = {
         "calcium (mg/L)": None,
         "durete totale (°f)": None,
         "chlorure (mg/L)": 250
-        "Chlore (mg/L)": (0.1,0,5)
     }
 }
 
