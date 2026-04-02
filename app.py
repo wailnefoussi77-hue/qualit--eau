@@ -39,7 +39,7 @@ NORMES = {
         "potassium (mg/L)": None,
         "calcium (mg/L)": None,
         "durete totale (°f)": None,
-        "chlore (mg/L)": 0.5
+        "chlorure (mg/L)": 250
     },
 
     "Normes françaises / UE": {
