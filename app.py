@@ -312,5 +312,4 @@ if submitted:
 
     st.download_button("⬇️ Télécharger le rapport (CSV)", csv, "rapport_qualite_eau.csv") 
 
-Change mon programme github ducoup pour modifier seulement  les normes du chlore 
 
